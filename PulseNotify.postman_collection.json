@@ -1,0 +1,450 @@
+{
+  "info": {
+    "name": "PulseNotify API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000"
+    }
+  ],
+  "item": [
+    {
+      "name": "01 Register: success",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.collectionVariables.set('suffix', Date.now());"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 201\", function () { pm.response.to.have.status(201); });",
+              "var j = pm.response.json();",
+              "pm.test(\"has access and role user\", function () { pm.expect(j.access).to.be.a(\"string\"); pm.expect(j.role).to.eql(\"user\"); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/auth/register/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"username\": \"alice_{{suffix}}\", \"password\": \"securepass\", \"email\": \"alice@example.com\"}"
+        }
+      }
+    },
+    {
+      "name": "02 Register: duplicate username",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 400\", function () { pm.response.to.have.status(400); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/auth/register/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"username\": \"alice_{{suffix}}\", \"password\": \"securepass\", \"email\": \"alice@example.com\"}"
+        }
+      }
+    },
+    {
+      "name": "03 Login: success",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 200\", function () { pm.response.to.have.status(200); });",
+              "pm.collectionVariables.set('token_alice', pm.response.json().access);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/auth/login/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"username\": \"alice_{{suffix}}\", \"password\": \"securepass\"}"
+        }
+      }
+    },
+    {
+      "name": "04 Login: wrong password",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 401\", function () { pm.response.to.have.status(401); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/auth/login/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"username\": \"alice_{{suffix}}\", \"password\": \"wrongpass\"}"
+        }
+      }
+    },
+    {
+      "name": "04b Setup: register Bob",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 201\", function () { pm.response.to.have.status(201); });",
+              "pm.collectionVariables.set('token_bob', pm.response.json().access);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/auth/register/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"username\": \"bob_{{suffix}}\", \"password\": \"securepass\", \"email\": \"bob@example.com\"}"
+        }
+      }
+    },
+    {
+      "name": "05 Create alert: success",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 201\", function () { pm.response.to.have.status(201); });",
+              "var j = pm.response.json();",
+              "pm.test(\"status is active\", function () { pm.expect(j.status).to.eql(\"active\"); });",
+              "pm.collectionVariables.set('alert_id', j.id);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_alice}}"
+          }
+        ],
+        "url": "{{base_url}}/api/alerts/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"origin\": \"DEL\", \"destination\": \"BOM\", \"threshold_price\": \"1000.00\"}"
+        }
+      }
+    },
+    {
+      "name": "06 List alerts: own alerts only",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 200\", function () { pm.response.to.have.status(200); });",
+              "var j = pm.response.json();",
+              "pm.test(\"only own alert returned\", function () { pm.expect(j.length).to.eql(1); pm.expect(j[0].id).to.eql(Number(pm.collectionVariables.get(\"alert_id\"))); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_alice}}"
+          }
+        ],
+        "url": "{{base_url}}/api/alerts/"
+      }
+    },
+    {
+      "name": "07 Delete alert: own alert",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 200\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"status inactive\", function () { pm.expect(pm.response.json().status).to.eql(\"inactive\"); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_alice}}"
+          }
+        ],
+        "url": "{{base_url}}/api/alerts/{{alert_id}}/"
+      }
+    },
+    {
+      "name": "08 Delete alert: another user's alert",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 404\", function () { pm.response.to.have.status(404); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_bob}}"
+          }
+        ],
+        "url": "{{base_url}}/api/alerts/{{alert_id}}/"
+      }
+    },
+    {
+      "name": "09 Price feed: valid route",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 200\", function () { pm.response.to.have.status(200); });",
+              "var j = pm.response.json();",
+              "pm.test(\"route and integer price\", function () { pm.expect(j.route).to.eql(\"DEL-BOM\"); pm.expect(Number.isInteger(j.price)).to.be.true; });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/flights/price/?route=DEL-BOM"
+      }
+    },
+    {
+      "name": "10 Price feed: unknown route",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 404\", function () { pm.response.to.have.status(404); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/flights/price/?route=XXX-YYY"
+      }
+    },
+    {
+      "name": "10b Setup: login as admin (pulse_admin)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 200\", function () { pm.response.to.have.status(200); });",
+              "pm.collectionVariables.set('token_admin', pm.response.json().access);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/auth/login/",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"username\": \"pulse_admin\", \"password\": \"adminpass123\"}"
+        }
+      }
+    },
+    {
+      "name": "11 Admin summary: as admin",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 200\", function () { pm.response.to.have.status(200); });",
+              "var j = pm.response.json();",
+              "pm.test(\"all stat keys present\", function () { [\"total_alerts\",\"active_alerts\",\"triggered_alerts\",\"total_notifications\",\"top_routes\"].forEach(function (k) { pm.expect(j).to.have.property(k); }); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_admin}}"
+          }
+        ],
+        "url": "{{base_url}}/api/admin/summary/"
+      }
+    },
+    {
+      "name": "12 Admin summary: as regular user",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 403\", function () { pm.response.to.have.status(403); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token_alice}}"
+          }
+        ],
+        "url": "{{base_url}}/api/admin/summary/"
+      }
+    },
+    {
+      "name": "13 Protected endpoint without token",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 401\", function () { pm.response.to.have.status(401); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{base_url}}/api/alerts/"
+      }
+    }
+  ]
+}
